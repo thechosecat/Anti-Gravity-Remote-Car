@@ -34,9 +34,9 @@ void loop() {
     rf24.read(&msg, sizeof(msg));
     Serial.println(msg); // 顯示訊息內容
     String cat = String(msg);
-    int a = getValue(cat, ";", 1).toInt();
-    int b = getValue(cat, ";", 2).toInt();
-    int c = getValue(cat, ";", 3).toInt();
+    int a = getValue(cat, ';', 1).toInt();
+    int b = getValue(cat, ';', 2).toInt();
+    int c = getValue(cat, ';', 3).toInt();
     if (b < 300 ) {
       digitalWrite(5, LOW);
       digitalWrite(6, HIGH);
@@ -62,4 +62,3 @@ String getValue(String data, char separator, int index) {
   }
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
-
