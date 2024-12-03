@@ -1,11 +1,12 @@
 #include <SPI.h>
 #include "RF24.h"
 #include <printf.h>
+#include <Servo.h>
 
-RF24 rf24(7, 8, 4000000); // CE腳, CSN腳
-
+RF24 rf24(7, 8, 4000000);  // CE腳, CSN腳
 byte addr[] = "1Node";
 byte pipe = 1;  // 指定通道編號
+Servo myservo;
 
 void setup() {
   Serial.begin(9600);
@@ -15,40 +16,107 @@ void setup() {
   rf24.setPALevel(RF24_PA_MIN);
   rf24.setDataRate(RF24_250KBPS);
   rf24.openReadingPipe(pipe, addr);  // 開啟通道和位址
-  rf24.startListening();  // 開始監聽無線廣播
+  rf24.startListening();             // 開始監聽無線廣播
   Serial.println("nRF24L01 ready!");
   rf24.printDetails();
-  // 設定馬達
-  pinMode(3, OUTPUT);
+  // 設定驅動(無刷風扇)
+  myservo.attach(3);
+  myservo.write(0);
+  // 設定馬達 (輪子)
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
   pinMode(9, OUTPUT);
   pinMode(10, OUTPUT);
   digitalWrite(5, LOW);
   digitalWrite(6, LOW);
+  digitalWrite(9, LOW);
+  digitalWrite(10, LOW);
+  delay(1000);
 }
-
+unsigned long previousMillis = 0;
+const long interval = 100;
+int sr = 50;
 void loop() {
-  if (rf24.available(&pipe)) {
-    char msg[64] = "";
-    rf24.read(&msg, sizeof(msg));
-    Serial.println(msg); // 顯示訊息內容
-    String cat = String(msg);
-    int a = getValue(cat, ';', 1).toInt();
-    int b = getValue(cat, ';', 2).toInt();
-    int c = getValue(cat, ';', 3).toInt();
-    if (b < 300 ) {
-      digitalWrite(5, LOW);
-      digitalWrite(6, HIGH);
-    } else if (b > 550) {
-      digitalWrite(5, HIGH);
-      digitalWrite(6, LOW);
-    } else {
-      digitalWrite(5, LOW);
-      digitalWrite(6, LOW);
+  if (!(rf24.available(&pipe))) {
+    return;
+  }
+  char msg[64] = "";
+  rf24.read(&msg, sizeof(msg));
+  Serial.println(msg);  // 顯示訊息內容
+  String cat = String(msg);
+  int a = getValue(cat, ';', 1).toInt();
+  int b = getValue(cat, ';', 2).toInt();
+  int c = getValue(cat, ';', 3).toInt();
+  unsigned long currentMillis = millis();
+  //風扇
+  if (a > 100) {
+    if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+      if (sr <= 179) {
+        if (sr < 49) {
+          sr = 49;
+        } else {
+          sr++;
+        }
+        Serial.println(sr);
+      }
     }
+  } else {
+    sr = 0;
+  }
+  myservo.write(sr);
+  //輪子控制
+  // 前後
+  if (c < 250) {
+    setCW();
+    return;
+  } else if (c > 800) {
+    setCCW();
+    return;
+  }
+  if (b < 250) {
+    setLeft();
+    return;
+  } else if (b > 800) {
+    setRight();
+    return;
+  } else {
+    stopALL();
   }
 }
+void setCW() {
+  digitalWrite(5, LOW);
+  digitalWrite(6, HIGH);
+  digitalWrite(9, LOW);
+  digitalWrite(10, HIGH);
+}
+void setCCW() {
+  digitalWrite(5, HIGH);
+  digitalWrite(6, LOW);
+  digitalWrite(9, HIGH);
+  digitalWrite(10, LOW);
+}
+void setLeft() {
+  digitalWrite(5, HIGH);
+  digitalWrite(6, LOW);
+  digitalWrite(9, LOW);
+  digitalWrite(10, HIGH);
+}
+void setRight() {
+  digitalWrite(5, LOW);
+  digitalWrite(6, HIGH);
+  digitalWrite(9, HIGH);
+  digitalWrite(10, LOW);
+}
+void stopALL() {
+  digitalWrite(5, LOW);
+  digitalWrite(6, LOW);
+  digitalWrite(9, LOW);
+  digitalWrite(10, LOW);
+}
+
+
+
 String getValue(String data, char separator, int index) {
   int found = 0;
   int strIndex[] = { 0, -1 };
