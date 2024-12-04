@@ -2,24 +2,37 @@
 #include "RF24.h"
 #include <printf.h>
 #include <Servo.h>
-
 RF24 rf24(7, 8, 4000000);  // CE腳, CSN腳
-byte addr[] = "1Node";
-byte pipe = 1;  // 指定通道編號
 Servo myservo;
 
-void setup() {
-  Serial.begin(9600);
-  rf24.begin();
-  printf_begin();
+// ===========設定為接收模式===========
+byte addr[] = "1Node";
+byte pipe = 1;  // 指定通道編號
+void setreceiveMode() {
   rf24.setChannel(83);  // 設定頻道編號
   rf24.setPALevel(RF24_PA_MIN);
   rf24.setDataRate(RF24_250KBPS);
-  rf24.openReadingPipe(pipe, addr);  // 開啟通道和位址
+  rf24.openReadingPipe(pipe, addr);  // 讀取地址設定
   rf24.startListening();             // 開始監聽無線廣播
-  Serial.println("nRF24L01 ready!");
+}
+// ===========設定為傳送模式===========
+byte addr2[] = "2Node";
+void setsendMode() {
+  rf24.setChannel(84);  // 設定頻道編號
+  rf24.setPALevel(RF24_PA_MIN);
+  rf24.setDataRate(RF24_250KBPS);
+  rf24.openWritingPipe(addr2);  // 讀取地址設定
+  rf24.stopListening();             // 開始傳送資料
+}
+
+void setup() {
+  //設定通訊模塊
+  Serial.begin(9600);
+  rf24.begin();
+  setreceiveMode();
+  printf_begin();
   rf24.printDetails();
-  // 設定驅動(無刷風扇)
+  // 設定電變驅動(無刷風扇)
   myservo.attach(3);
   myservo.write(0);
   // 設定馬達 (輪子)
@@ -31,23 +44,46 @@ void setup() {
   digitalWrite(6, LOW);
   digitalWrite(9, LOW);
   digitalWrite(10, LOW);
-  delay(1000);
+  // 設定電壓監控
+  pinMode(A0, INPUT);
+  delay(100);
 }
 unsigned long previousMillis = 0;
+unsigned long previousMillis2 = 0;
 const long interval = 100;
 int sr = 50;
 void loop() {
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis2 >= 750) {
+    previousMillis2 = currentMillis;
+    //傳送模式
+    setsendMode();
+//    while (millis() - previousMillis2 < 50) {
+      float voltage = analogRead(A0) * (5.0 / 1023.0) * 2;
+      String v = "BT-Votage:" + String(voltage) + "V";
+      Serial.println(v);
+      char msg1[64];
+      v.toCharArray(msg1, v.length() + 1);
+      rf24.write(&msg1, sizeof(msg1));  // 傳送資料
+      String fan = "Fan-Speed" + String(sr) + "/180";
+      Serial.println(fan);
+      char msg2[64];
+      v.toCharArray(msg2, v.length() + 1);
+      rf24.write(&msg2, sizeof(msg2));  // 傳送資料
+    // 還回發射模式
+    setreceiveMode();
+    return;
+  }
+
   if (!(rf24.available(&pipe))) {
     return;
   }
   char msg[64] = "";
   rf24.read(&msg, sizeof(msg));
-  Serial.println(msg);  // 顯示訊息內容
   String cat = String(msg);
   int a = getValue(cat, ';', 1).toInt();
   int b = getValue(cat, ';', 2).toInt();
   int c = getValue(cat, ';', 3).toInt();
-  unsigned long currentMillis = millis();
   //風扇
   if (a > 100) {
     if (currentMillis - previousMillis >= interval) {
@@ -84,6 +120,8 @@ void loop() {
     stopALL();
   }
 }
+
+// 馬達控制函數
 void setCW() {
   digitalWrite(5, LOW);
   digitalWrite(6, HIGH);
@@ -115,8 +153,7 @@ void stopALL() {
   digitalWrite(10, LOW);
 }
 
-
-
+// 系統運算函數
 String getValue(String data, char separator, int index) {
   int found = 0;
   int strIndex[] = { 0, -1 };
