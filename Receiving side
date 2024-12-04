@@ -16,13 +16,13 @@ void setreceiveMode() {
   rf24.startListening();             // 開始監聽無線廣播
 }
 // ===========設定為傳送模式===========
-byte addr2[] = "2Node";
+byte addr0[] = "0Node";
 void setsendMode() {
   rf24.setChannel(84);  // 設定頻道編號
   rf24.setPALevel(RF24_PA_MIN);
   rf24.setDataRate(RF24_250KBPS);
-  rf24.openWritingPipe(addr2);  // 讀取地址設定
-  rf24.stopListening();             // 開始傳送資料
+  rf24.openWritingPipe(addr0);  // 讀取地址設定
+  rf24.stopListening();         // 開始傳送資料
 }
 
 void setup() {
@@ -49,75 +49,77 @@ void setup() {
   delay(100);
 }
 unsigned long previousMillis = 0;
-unsigned long previousMillis2 = 0;
-const long interval = 100;
 int sr = 50;
 void loop() {
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis2 >= 750) {
-    previousMillis2 = currentMillis;
-    //傳送模式
-    setsendMode();
-//    while (millis() - previousMillis2 < 50) {
-      float voltage = analogRead(A0) * (5.0 / 1023.0) * 2;
-      String v = "BT-Votage:" + String(voltage) + "V";
-      Serial.println(v);
-      char msg1[64];
-      v.toCharArray(msg1, v.length() + 1);
-      rf24.write(&msg1, sizeof(msg1));  // 傳送資料
-      String fan = "Fan-Speed" + String(sr) + "/180";
-      Serial.println(fan);
-      char msg2[64];
-      v.toCharArray(msg2, v.length() + 1);
-      rf24.write(&msg2, sizeof(msg2));  // 傳送資料
+  //傳送模式
+  setsendMode();
+  while (millis() - previousMillis < 50) {
+    float voltage = analogRead(A0) * (5.0 / 1023.0) * 2;
+    String v = "BT-Votage:" + String(voltage) + "V " + "Fan-Speed" + String(sr) + "/180";
+    Serial.println(v);
+    char msg1[64];
+    v.toCharArray(msg1, v.length() + 1);
+    rf24.write(&msg1, sizeof(msg1));  // 傳送資料
     // 還回發射模式
-    setreceiveMode();
-    return;
   }
-
-  if (!(rf24.available(&pipe))) {
-    return;
-  }
-  char msg[64] = "";
-  rf24.read(&msg, sizeof(msg));
-  String cat = String(msg);
-  int a = getValue(cat, ';', 1).toInt();
-  int b = getValue(cat, ';', 2).toInt();
-  int c = getValue(cat, ';', 3).toInt();
-  //風扇
-  if (a > 100) {
-    if (currentMillis - previousMillis >= interval) {
-      previousMillis = currentMillis;
-      if (sr <= 179) {
-        if (sr < 49) {
-          sr = 49;
-        } else {
-          sr++;
+  previousMillis = millis();
+  setreceiveMode();
+  unsigned long previousMillis2 = millis();
+  while (millis() - previousMillis < 150) {
+    if (rf24.available(&pipe)) {
+      char msg[64] = "";
+      rf24.read(&msg, sizeof(msg));
+      String cat = String(msg);
+      int a = getValue(cat, ';', 1).toInt();
+      int b = getValue(cat, ';', 2).toInt();
+      int c = getValue(cat, ';', 3).toInt();
+      //風扇
+      if (a > 100) {
+        if (millis() - previousMillis2 >= 50) {
+          previousMillis2 = millis();
+          if (sr <= 179) {
+            if (sr < 49) {
+              sr = 49;
+            } else {
+              sr++;
+            }
+          }
         }
-        Serial.println(sr);
+        myservo.write(sr);
+        continue;
+      } else {
+        sr = 0;
+        myservo.write(sr);
+      }
+      //輪子控制
+      // 前後
+      if (c < 250) {
+        setCW();
+        continue;
+      } else if (c > 800) {
+        setCCW();
+        continue;
+      }
+      if (b < 250) {
+        setLeft();
+        continue;
+      } else if (b > 800) {
+        setRight();
+        continue;
+      } else {
+        stopALL();
       }
     }
-  } else {
-    sr = 0;
   }
-  myservo.write(sr);
-  //輪子控制
-  // 前後
-  if (c < 250) {
-    setCW();
-    return;
-  } else if (c > 800) {
-    setCCW();
-    return;
-  }
-  if (b < 250) {
-    setLeft();
-    return;
-  } else if (b > 800) {
-    setRight();
-    return;
-  } else {
-    stopALL();
+  previousMillis = millis();
+  setsendMode();
+  while (millis() - previousMillis < 50) {
+    float voltage = analogRead(A0) * (5.0 / 1023.0) * 2;
+    String v = "BT-Votage:" + String(voltage) + "V " + "Fan-Speed" + String(sr) + "/180";
+    Serial.println(v);
+    char msg1[64];
+    v.toCharArray(msg1, v.length() + 1);
+    rf24.write(&msg1, sizeof(msg1));  // 傳送資料
   }
 }
 
