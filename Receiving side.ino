@@ -55,9 +55,9 @@ void loop() {
   setsendMode();
   while (millis() - previousMillis < 50) {
     float voltage = analogRead(A0) * (5.0 / 1023.0) * 2;
-    String v = "BT-Votage:" + String(voltage) + "V " + "Fan-Speed" + String(sr) + "/180";
+    String v = String(voltage) + ";" + String(sr);
     Serial.println(v);
-    char msg1[64];
+    char msg1[32];
     v.toCharArray(msg1, v.length() + 1);
     rf24.write(&msg1, sizeof(msg1));  // 傳送資料
     // 還回發射模式
@@ -67,12 +67,12 @@ void loop() {
   unsigned long previousMillis2 = millis();
   while (millis() - previousMillis < 150) {
     if (rf24.available(&pipe)) {
-      char msg[64] = "";
+      char msg[32] = "";
       rf24.read(&msg, sizeof(msg));
       String cat = String(msg);
-      int a = getValue(cat, ';', 1).toInt();
-      int b = getValue(cat, ';', 2).toInt();
-      int c = getValue(cat, ';', 3).toInt();
+      int a = getValue(cat, ';', 0).toInt();
+      int b = getValue(cat, ';', 1).toInt();
+      int c = getValue(cat, ';', 2).toInt();
       //風扇
       if (a > 100) {
         if (millis() - previousMillis2 >= 50) {
@@ -115,9 +115,9 @@ void loop() {
   setsendMode();
   while (millis() - previousMillis < 50) {
     float voltage = analogRead(A0) * (5.0 / 1023.0) * 2;
-    String v = "BT-Votage:" + String(voltage) + "V " + "Fan-Speed" + String(sr) + "/180";
+    String v = String(voltage) + ";" + String(sr);
     Serial.println(v);
-    char msg1[64];
+    char msg1[32];
     v.toCharArray(msg1, v.length() + 1);
     rf24.write(&msg1, sizeof(msg1));  // 傳送資料
   }
