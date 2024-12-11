@@ -37,16 +37,16 @@ void setreceiveMode() {
 void setup() {
   display.begin(SH1106_SWITCHCAPVCC, 0x3C);  // 一般1306 OLED的位址都是0x3C
   display.clearDisplay();
-  display.setTextSize(2);     // 設定文字大小
-  display.setTextColor(1);        // 1:OLED預設的顏色(這個會依該OLED的顏色來決定)
-  display.setCursor(0, 0);            // 設定起始座標
-  display.print("Booting...");        // 要顯示的字串
+  display.setTextSize(2);       // 設定文字大小
+  display.setTextColor(1);      // 1:OLED預設的顏色(這個會依該OLED的顏色來決定)
+  display.setCursor(0, 0);      // 設定起始座標
+  display.print("Booting...");  // 要顯示的字串
   display.display();
   delay(500);
   rf24.begin();
   Serial.begin(9600);
-  display.setTextSize(1);     // 設定文字大小
-  display.setTextColor(1);        // 1:OLED預設的顏色(這個會依該OLED的顏色來決定)
+  display.setTextSize(1);   // 設定文字大小
+  display.setTextColor(1);  // 1:OLED預設的顏色(這個會依該OLED的顏色來決定)
   display.setCursor(0, 16);
   display.print("RF24.....OK");
   display.display();
@@ -68,30 +68,28 @@ void setup() {
   while (!rf24.available(&pipe)) {
     waitingLogo();
   }
-  delay(1000);
-  setreceiveMode();
 }
 unsigned long previousMillis = 0;
 bool start = false;
 String m;
 void loop() {
-  while (millis() - previousMillis < 10000) {
+  while (millis() - previousMillis < 70) {
     setreceiveMode();
     if (rf24.available(&pipe)) {
-      char msg[64] = "";
+      char msg[32] = "";
       rf24.read(&msg, sizeof(msg));
-      Serial.println(String(msg));
-      Serial.println("monitor:");
+      // Serial.println(String(msg));
+      // Serial.println("monitor:");
       m = String(msg);
     }
   }
   MonitorLogo(m);
   previousMillis = millis();
-  while (millis() - previousMillis < 500) {
+  while (millis() - previousMillis < 510) {
     setsendMode();
-    String ram = String((millis() / 1000)) + "秒" + ";" + String(analogRead(0)) + ";" + String(analogRead(1)) + ";" + String(analogRead(3));
-    Serial.println(ram);
-    char msg[64];
+    String ram = String(analogRead(0)) + ";" + String(analogRead(1)) + ";" + String(analogRead(3));
+    // Serial.println(ram);
+    char msg[32];
     ram.toCharArray(msg, ram.length() + 1);
     rf24.write(&msg, sizeof(msg));  // 傳送資料
   }
@@ -100,42 +98,49 @@ void loop() {
 
 void waitingLogo() {
   display.clearDisplay();
-  display.setTextSize(2);     // 設定文字大小
-  display.setTextColor(1);        // 1:OLED預設的顏色(這個會依該OLED的顏色來決定)
-  display.setCursor(0, 0);            // 設定起始座標
-  display.print("Waiting");        // 要顯示的字串
-  display.setTextSize(1);     // 設定文字大小
+  display.setTextSize(2);    // 設定文字大小
+  display.setTextColor(1);   // 1:OLED預設的顏色(這個會依該OLED的顏色來決定)
+  display.setCursor(0, 0);   // 設定起始座標
+  display.print("Waiting");  // 要顯示的字串
+  display.setTextSize(1);    // 設定文字大小
   display.setCursor(0, 20);
-  display.print("Please boot the Receiving-side,When the signal is received, the process will continue");
+  display.print("Boot the RSV side to start");
   display.display();
-  display.setTextSize(2);     // 設定文字大小
-  display.setCursor(80, 0);            // 設定起始座標
-  delay(100);
-  display.print(".");        // 要顯示的字串
-  display.display();
-  delay(100);
-  display.print(".");        // 要顯示的字串
-  display.display();
-  delay(100);
-  display.print(".");        // 要顯示的字串
-  display.display();
-  delay(100);
-  display.print(".");        // 要顯示的字串
-  display.display();
-  delay(100);
+  display.setTextSize(2);    // 設定文字大小
+  display.setCursor(80, 0);  // 設定起始座標
+  for (int i = 0; i <= 3; i++) {
+    delay(50);
+    display.print(".");  // 要顯示的字串
+    display.display();
+    delay(50);
+  }
 }
+bool b = 1;
 void MonitorLogo(String data) {
   display.clearDisplay();
   display.setTextSize(2);
-  display.setCursor(0, 0);            // 設定起始座標
-  display.print("Monitor:");        // 要顯示的字串
+  display.setCursor(0, 0);    // 設定起始座標
+  display.print("Monitor:");  // 要顯示的字串
   display.setTextSize(1);
   display.setCursor(0, 20);
   display.print("--------------");
   display.setCursor(0, 30);
   display.print("BT:    |  FAN_RPM:");
   display.setCursor(0, 40);
-  display.print(getValue(data, ';', 0) + "    " + getValue(data, ';', 1));
+  if (getValue(data, ';', 0).toInt() < 7) {
+    if (b) {
+      display.print(getValue(data, ';', 0) + "V");
+      b = 0;
+    } else {
+      display.print(getValue(data, ';', 0) + "V !!");
+      b = 1;
+    }
+  } else {
+    display.print(getValue(data, ';', 0) + "V");
+  }
+
+  display.setCursor(95, 40);
+  display.print(getValue(data, ';', 1));
   display.display();
 }
 String getValue(String data, char separator, int index) {
