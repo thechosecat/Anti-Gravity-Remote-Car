@@ -70,6 +70,7 @@ void setup() {
   }
 }
 unsigned long previousMillis = 0;
+unsigned long LastRSVMillis = 0;
 bool start = false;
 String m;
 void loop() {
@@ -81,6 +82,7 @@ void loop() {
       // Serial.println(String(msg));
       // Serial.println("monitor:");
       m = String(msg);
+      LastRSVMillis = millis();
     }
   }
   MonitorLogo(m);
@@ -88,7 +90,7 @@ void loop() {
   while (millis() - previousMillis < 510) {
     setsendMode();
     String ram = String(analogRead(0)) + ";" + String(analogRead(1)) + ";" + String(analogRead(3));
-    // Serial.println(ram);
+    Serial.println(ram);
     char msg[32];
     ram.toCharArray(msg, ram.length() + 1);
     rf24.write(&msg, sizeof(msg));  // 傳送資料
@@ -104,7 +106,7 @@ void waitingLogo() {
   display.print("Waiting");  // 要顯示的字串
   display.setTextSize(1);    // 設定文字大小
   display.setCursor(0, 20);
-  display.print("Boot the RSV side to start");
+  display.print("Boot RSV side to start");
   display.display();
   display.setTextSize(2);    // 設定文字大小
   display.setCursor(80, 0);  // 設定起始座標
@@ -122,11 +124,11 @@ void MonitorLogo(String data) {
   display.setCursor(0, 0);    // 設定起始座標
   display.print("Monitor:");  // 要顯示的字串
   display.setTextSize(1);
-  display.setCursor(0, 20);
-  display.print("--------------");
-  display.setCursor(0, 30);
-  display.print("BT:    |  FAN_RPM:");
-  display.setCursor(0, 40);
+  display.setCursor(0, 15);
+  display.print("---------------");
+  display.setCursor(0, 25);
+  display.print("BT:    | FAN_RPM:");
+  display.setCursor(0, 35);
   if (getValue(data, ';', 0).toInt() < 7) {
     if (b) {
       display.print(getValue(data, ';', 0) + "V");
@@ -138,9 +140,13 @@ void MonitorLogo(String data) {
   } else {
     display.print(getValue(data, ';', 0) + "V");
   }
-
-  display.setCursor(95, 40);
+  display.setCursor(95, 35);
   display.print(getValue(data, ';', 1));
+  display.setCursor(0, 45);
+  display.print("---------------");
+  display.setCursor(0, 55);
+  float voltage = analogRead(A3) * (5.0 / 1023.0) * 2;
+  display.print(String(voltage) + "V  | LRS:" +String((millis()-LastRSVMillis)/1000) + "Se");
   display.display();
 }
 String getValue(String data, char separator, int index) {
