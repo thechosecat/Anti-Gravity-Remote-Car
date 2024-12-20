@@ -32,9 +32,7 @@ void setreceiveMode() {
   rf24.startListening();              // 開始監聽無線廣播
 }
 
-
-
-void setup() {
+void LEDsetip() {
   display.begin(SH1106_SWITCHCAPVCC, 0x3C);  // 一般1306 OLED的位址都是0x3C
   display.clearDisplay();
   display.setTextSize(2);       // 設定文字大小
@@ -42,28 +40,69 @@ void setup() {
   display.setCursor(0, 0);      // 設定起始座標
   display.print("Booting...");  // 要顯示的字串
   display.display();
-  delay(500);
-  rf24.begin();
-  Serial.begin(9600);
+}
+void failedmsg(String modle, String data, int se) {
+  for (int i = se; i >= 0; i--) {  // 使用 for 循環，從 10 遞減到 0
+    display.clearDisplay();
+    display.setTextSize(2);   // 設定文字大小
+    display.setTextColor(1);  // 1:OLED預設的顏色(這個會依該OLED的顏色來決定)
+    display.setCursor(0, 0);  // 設定起始座標
+    display.print("ERROR!");
+    display.setTextSize(1); 
+    display.setCursor(0, 18);
+    display.print(modle);
+    display.setCursor(0, 29);
+    display.print(data);
+    display.setCursor(0, 55);
+    display.print("Retry in ....... " + String(i) + "se");
+    display.display();
+    delay(1000);
+  }
+}
+bool selftest() {
   display.setTextSize(1);   // 設定文字大小
   display.setTextColor(1);  // 1:OLED預設的顏色(這個會依該OLED的顏色來決定)
   display.setCursor(0, 16);
+  if (!rf24.begin()) {
+    failedmsg("RF24.........! FALL !", "Cannot Initialization RF24,Please cheack the RF24 modle", 10);
+    return false;
+  }
+  setreceiveMode();
   display.print("RF24.....OK");
   display.display();
-  setreceiveMode();
-  display.setCursor(0, 32);
+  delay(250);
+  display.setCursor(0, 28);
   display.print("MODE.....REV");
   display.display();
-  // 設定input
+  delay(250);
   pinMode(0, INPUT);
   pinMode(1, INPUT);
   pinMode(2, INPUT);
   pinMode(3, INPUT);
   pinMode(4, INPUT);
   pinMode(5, INPUT);
-  display.setCursor(0, 48);
-  display.print("PINSET.....ok");
+  display.setCursor(0, 40);
+  display.print("PINSET.....Done");
   display.display();
+  delay(250);
+  display.setCursor(0, 52);
+  float voltage = analogRead(A2) * (5.0 / 1023.0);
+  if (voltage < 3.5) {
+    failedmsg("Vin........! FALL !", "Vin votage to low(" +String(voltage) +"v) ,Please check battery/transformer", 10);
+    return false;
+  }
+  display.print("Vin.....OK");
+  display.display();
+  return true;
+}
+
+void setup() {
+  LEDsetip();
+  delay(500);
+  if (!selftest()) {
+    setup();
+    return;
+  }
   delay(1000);
   while (!rf24.available(&pipe)) {
     waitingLogo();
@@ -79,8 +118,6 @@ void loop() {
     if (rf24.available(&pipe)) {
       char msg[32] = "";
       rf24.read(&msg, sizeof(msg));
-      // Serial.println(String(msg));
-      // Serial.println("monitor:");
       m = String(msg);
       LastRSVMillis = millis();
     }
@@ -90,7 +127,6 @@ void loop() {
   while (millis() - previousMillis < 510) {
     setsendMode();
     String ram = String(analogRead(0)) + ";" + String(analogRead(1)) + ";" + String(analogRead(3));
-    Serial.println(ram);
     char msg[32];
     ram.toCharArray(msg, ram.length() + 1);
     rf24.write(&msg, sizeof(msg));  // 傳送資料
@@ -106,15 +142,15 @@ void waitingLogo() {
   display.print("Waiting");  // 要顯示的字串
   display.setTextSize(1);    // 設定文字大小
   display.setCursor(0, 20);
-  display.print("Boot RSV side to start");
+  display.print("To ensure Half-Duplex timing synchronization, the system will wait until receive RSV-side's ready signal");
   display.display();
   display.setTextSize(2);    // 設定文字大小
   display.setCursor(80, 0);  // 設定起始座標
   for (int i = 0; i <= 3; i++) {
-    delay(50);
+    delay(25);
     display.print(".");  // 要顯示的字串
     display.display();
-    delay(50);
+    delay(25);
   }
 }
 bool b = 1;
@@ -125,7 +161,7 @@ void MonitorLogo(String data) {
   display.print("Monitor:");  // 要顯示的字串
   display.setTextSize(1);
   display.setCursor(0, 15);
-  display.print("---------------");
+  display.print("--------------------");
   display.setCursor(0, 25);
   display.print("BT:    | FAN_RPM:");
   display.setCursor(0, 35);
@@ -140,13 +176,17 @@ void MonitorLogo(String data) {
   } else {
     display.print(getValue(data, ';', 0) + "V");
   }
-  display.setCursor(95, 35);
-  display.print(getValue(data, ';', 1));
+  display.setCursor(55, 35);
+  if (getValue(data, ';', 1).toInt() < 49){
+      display.print("0/14720");
+  }else{
+  display.print(String(map(getValue(data, ';', 1).toInt(), 49, 180, 0, 14720))+"/14720");
+  }
   display.setCursor(0, 45);
-  display.print("---------------");
+  display.print("--------------------");
   display.setCursor(0, 55);
-  float voltage = analogRead(A3) * (5.0 / 1023.0) * 2;
-  display.print(String(voltage) + "V  | LRS:" +String((millis()-LastRSVMillis)/1000) + "Se");
+  float voltage = analogRead(A2) * (5.0 / 1023.0);
+  display.print(String(voltage) + "V  | LRS:" + String((millis() - LastRSVMillis) / 1000) + "Se");
   display.display();
 }
 String getValue(String data, char separator, int index) {
