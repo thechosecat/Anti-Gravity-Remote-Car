@@ -83,8 +83,9 @@ void loop() {
       if (a > 100) {
         if (millis() - previousMillis2 >= 50) {
           previousMillis2 = millis();
-          // 長按開啟
+          
           if (!jump) {
+            // 長按開啟
             if (!fly) {
               fly_sw++;
               if (fly_sw > 50) {
@@ -92,7 +93,9 @@ void loop() {
                 fly = true;
                 myservo.write(80);
                 jump = true;
+                sr = 180;
               }
+              // 長按關閉
             } else {
               fly_sw++;
               if (fly_sw > 50) {
@@ -100,6 +103,7 @@ void loop() {
                 fly = false;
                 myservo.write(0);
                 jump = true;
+                sr = 0;
               }
             }
           }
