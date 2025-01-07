@@ -34,7 +34,6 @@ void setup() {
   rf24.printDetails();
   // 設定電變驅動(無刷風扇)
   myservo.attach(3);
-  myservo.write(0);
   // 設定馬達 (輪子)
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
@@ -47,9 +46,16 @@ void setup() {
   // 設定電壓監控
   pinMode(A0, INPUT);
   delay(100);
+  myservo.write(60);
+  delay(1000);
+  myservo.write(1000);
+  delay(1000);
 }
 unsigned long previousMillis = 0;
 int sr = 50;
+int fly_sw = 0;
+bool fly = false;
+bool jump = false;
 void loop() {
   //傳送模式
   setsendMode();
@@ -77,34 +83,69 @@ void loop() {
       if (a > 100) {
         if (millis() - previousMillis2 >= 50) {
           previousMillis2 = millis();
-          if (sr <= 179) {
-            if (sr < 49) {
-              sr = 49;
+          // 長按開啟
+          if (!jump) {
+            if (!fly) {
+              fly_sw++;
+              if (fly_sw > 50) {
+                fly_sw = 0;
+                fly = true;
+                myservo.write(80);
+                jump = true;
+              }
             } else {
-              sr++;
+              fly_sw++;
+              if (fly_sw > 50) {
+                fly_sw = 0;
+                fly = false;
+                myservo.write(0);
+                jump = true;
+              }
             }
           }
         }
-        myservo.write(sr);
-        continue;
-      } else {
-        sr = 0;
-        myservo.write(sr);
+      }else{
+        jump = false;
       }
+
+
+
+      // if (a > 100) {
+      //   if (millis() - previousMillis2 >= 50) {
+      //     previousMillis2 = millis();
+      //     if (sr <= 179) {
+      //       if (sr < 49) {
+      //         sr = 49;
+      //       } else {
+      //         sr++;
+      //       }
+      //     }
+      //   }
+      //   myservo.write(sr);
+      //   continue;
+      // } else {
+      //   sr = 0;
+      //   myservo.write(sr);
+      // }
+
+
+
+
+
       //輪子控制
-      // 前後
+      // 左右
       if (c < 250) {
-        setCW();
+        setLeft();
         continue;
       } else if (c > 800) {
-        setCCW();
+        setRight();
         continue;
       }
       if (b < 250) {
-        setLeft();
+        setCW();
         continue;
       } else if (b > 800) {
-        setRight();
+        setCCW();
         continue;
       } else {
         stopALL();
